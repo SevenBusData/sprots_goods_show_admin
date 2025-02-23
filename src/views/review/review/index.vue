@@ -1,10 +1,26 @@
 <template>
   <div class="app-container">
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="商品名称" prop="commodityName">
+      <el-form-item label="用户ID" prop="userId">
         <el-input
-          v-model="queryParams.commodityName"
-          placeholder="请输入商品名称"
+          v-model="queryParams.userId"
+          placeholder="请输入用户ID"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="商品ID" prop="productId">
+        <el-input
+          v-model="queryParams.productId"
+          placeholder="请输入商品ID"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="评分" prop="rating">
+        <el-input
+          v-model="queryParams.rating"
+          placeholder="请输入评分"
           clearable
           @keyup.enter="handleQuery"
         />
@@ -22,7 +38,7 @@
           plain
           icon="Plus"
           @click="handleAdd"
-          v-hasPermi="['commodity:commodity:add']"
+          v-hasPermi="['review:review:add']"
         >新增</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -32,7 +48,7 @@
           icon="Edit"
           :disabled="single"
           @click="handleUpdate"
-          v-hasPermi="['commodity:commodity:edit']"
+          v-hasPermi="['review:review:edit']"
         >修改</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -42,7 +58,7 @@
           icon="Delete"
           :disabled="multiple"
           @click="handleDelete"
-          v-hasPermi="['commodity:commodity:remove']"
+          v-hasPermi="['review:review:remove']"
         >删除</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -51,22 +67,23 @@
           plain
           icon="Download"
           @click="handleExport"
-          v-hasPermi="['commodity:commodity:export']"
+          v-hasPermi="['review:review:export']"
         >导出</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
 
-    <el-table v-loading="loading" :data="commodityList" @selection-change="handleSelectionChange">
+    <el-table v-loading="loading" :data="reviewList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="商品" align="center" prop="id" />
-      <el-table-column label="商品名称" align="center" prop="commodityName" />
-      <el-table-column label="商品价格" align="center" prop="commodityPrice" />
-      <el-table-column label="商品信息" align="center" prop="commodityInfo" />
+      <el-table-column label="评论ID" align="center" prop="reviewId" />
+      <el-table-column label="用户ID" align="center" prop="userId" />
+      <el-table-column label="商品ID" align="center" prop="productId" />
+      <el-table-column label="评分" align="center" prop="rating" />
+      <el-table-column label="评论内容" align="center" prop="comment" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['commodity:commodity:edit']">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['commodity:commodity:remove']">删除</el-button>
+          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['review:review:edit']">修改</el-button>
+          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['review:review:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -79,17 +96,20 @@
       @pagination="getList"
     />
 
-    <!-- 添加或修改商品管理对话框 -->
+    <!-- 添加或修改评论对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="commodityRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="商品名称" prop="commodityName">
-          <el-input v-model="form.commodityName" placeholder="请输入商品名称" />
+      <el-form ref="reviewRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="用户ID" prop="userId">
+          <el-input v-model="form.userId" placeholder="请输入用户ID" />
         </el-form-item>
-        <el-form-item label="商品价格" prop="commodityPrice">
-          <el-input v-model="form.commodityPrice" placeholder="请输入商品价格" />
+        <el-form-item label="商品ID" prop="productId">
+          <el-input v-model="form.productId" placeholder="请输入商品ID" />
         </el-form-item>
-        <el-form-item label="商品信息" prop="commodityInfo">
-          <el-input v-model="form.commodityInfo" type="textarea" placeholder="请输入内容" />
+        <el-form-item label="评分" prop="rating">
+          <el-input v-model="form.rating" placeholder="请输入评分" />
+        </el-form-item>
+        <el-form-item label="评论内容" prop="comment">
+          <el-input v-model="form.comment" type="textarea" placeholder="请输入内容" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -102,12 +122,12 @@
   </div>
 </template>
 
-<script setup name="Commodity">
-import { listCommodity, getCommodity, delCommodity, addCommodity, updateCommodity } from "@/api/commodity/commodity";
+<script setup name="Review">
+import { listReview, getReview, delReview, addReview, updateReview } from "@/api/review/review";
 
 const { proxy } = getCurrentInstance();
 
-const commodityList = ref([]);
+const reviewList = ref([]);
 const open = ref(false);
 const loading = ref(true);
 const showSearch = ref(true);
@@ -122,25 +142,28 @@ const data = reactive({
   queryParams: {
     pageNum: 1,
     pageSize: 10,
-    commodityName: null,
+    userId: null,
+    productId: null,
+    rating: null,
+    comment: null,
   },
   rules: {
-    commodityName: [
-      { required: true, message: "商品名称不能为空", trigger: "blur" }
+    userId: [
+      { required: true, message: "用户ID不能为空", trigger: "blur" }
     ],
-    commodityPrice: [
-      { required: true, message: "商品价格不能为空", trigger: "blur" }
+    productId: [
+      { required: true, message: "商品ID不能为空", trigger: "blur" }
     ],
   }
 });
 
 const { queryParams, form, rules } = toRefs(data);
 
-/** 查询商品管理列表 */
+/** 查询评论列表 */
 function getList() {
   loading.value = true;
-  listCommodity(queryParams.value).then(response => {
-    commodityList.value = response.rows;
+  listReview(queryParams.value).then(response => {
+    reviewList.value = response.rows;
     total.value = response.total;
     loading.value = false;
   });
@@ -155,12 +178,14 @@ function cancel() {
 // 表单重置
 function reset() {
   form.value = {
-    id: null,
-    commodityName: null,
-    commodityPrice: null,
-    commodityInfo: null
+    reviewId: null,
+    userId: null,
+    productId: null,
+    rating: null,
+    comment: null,
+    createTime: null
   };
-  proxy.resetForm("commodityRef");
+  proxy.resetForm("reviewRef");
 }
 
 /** 搜索按钮操作 */
@@ -177,7 +202,7 @@ function resetQuery() {
 
 // 多选框选中数据
 function handleSelectionChange(selection) {
-  ids.value = selection.map(item => item.id);
+  ids.value = selection.map(item => item.reviewId);
   single.value = selection.length != 1;
   multiple.value = !selection.length;
 }
@@ -186,32 +211,32 @@ function handleSelectionChange(selection) {
 function handleAdd() {
   reset();
   open.value = true;
-  title.value = "添加商品管理";
+  title.value = "添加评论";
 }
 
 /** 修改按钮操作 */
 function handleUpdate(row) {
   reset();
-  const _id = row.id || ids.value
-  getCommodity(_id).then(response => {
+  const _reviewId = row.reviewId || ids.value
+  getReview(_reviewId).then(response => {
     form.value = response.data;
     open.value = true;
-    title.value = "修改商品管理";
+    title.value = "修改评论";
   });
 }
 
 /** 提交按钮 */
 function submitForm() {
-  proxy.$refs["commodityRef"].validate(valid => {
+  proxy.$refs["reviewRef"].validate(valid => {
     if (valid) {
-      if (form.value.id != null) {
-        updateCommodity(form.value).then(response => {
+      if (form.value.reviewId != null) {
+        updateReview(form.value).then(response => {
           proxy.$modal.msgSuccess("修改成功");
           open.value = false;
           getList();
         });
       } else {
-        addCommodity(form.value).then(response => {
+        addReview(form.value).then(response => {
           proxy.$modal.msgSuccess("新增成功");
           open.value = false;
           getList();
@@ -223,9 +248,9 @@ function submitForm() {
 
 /** 删除按钮操作 */
 function handleDelete(row) {
-  const _ids = row.id || ids.value;
-  proxy.$modal.confirm('是否确认删除商品管理编号为"' + _ids + '"的数据项？').then(function() {
-    return delCommodity(_ids);
+  const _reviewIds = row.reviewId || ids.value;
+  proxy.$modal.confirm('是否确认删除评论编号为"' + _reviewIds + '"的数据项？').then(function() {
+    return delReview(_reviewIds);
   }).then(() => {
     getList();
     proxy.$modal.msgSuccess("删除成功");
@@ -234,9 +259,9 @@ function handleDelete(row) {
 
 /** 导出按钮操作 */
 function handleExport() {
-  proxy.download('commodity/commodity/export', {
+  proxy.download('review/review/export', {
     ...queryParams.value
-  }, `commodity_${new Date().getTime()}.xlsx`)
+  }, `review_${new Date().getTime()}.xlsx`)
 }
 
 getList();
